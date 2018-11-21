@@ -98,19 +98,59 @@ combined_master <- combined_master %>%
 
 contextdata <- read_csv("election-context-2018.csv")
 
-#Looking at the available variables, I decide to look at both educationn and household variables
+#Looking at the available variables, I decide to look at both education and household variables
 
 contextdata <- contextdata %>% 
-  select(median_hh_inc, clf_unemploy_pct, lesshs_pct, lesscollege_pct, lesshs_whites_pct, lesscollege_whites_pct, rural_pct) %>% 
-  
+  select(state,median_hh_inc, clf_unemploy_pct, lesshs_pct, lesscollege_pct, lesshs_whites_pct, lesscollege_whites_pct, rural_pct) %>% 
+  drop_na() %>% 
   #since there is no districts explictly given, I do I similar switch as Ms. Gayton and do only states
   group_by(state) %>% 
   summarise(
     median_hh_inc = sum(median_hh_inc),
-    clf_unemploy_pct = sum(clf_unemploy_pct)/100,
-    lesshs_pct = sum(lesshs_pct)/100,
-    lesscollege_pct = sum(lesscollege_pct)/100,
-    lesshs_whites_pct = sum(lesshs_whites_pct)/100,
-    lesscollege_whites_pct = sum(lesscollege_whites_pct)/100,
-    rural_pct = sum(rural_pct)/100)
+    clf_unemploy_pct = mean(clf_unemploy_pct),
+    lesshs_pct = mean(lesshs_pct),
+    lesscollege_pct = mean(lesscollege_pct),
+    lesshs_whites_pct = mean(lesshs_whites_pct),
+    lesscollege_whites_pct = mean(lesscollege_whites_pct),
+    rural_pct = mean(rural_pct))
+
+#This function I used from Mr.Gayton to change the state names to abbreviations in order to merge with my other dataset
+
+to_abb <- function(x) {
+  i <- 1
+  for(i in 1:length(state.name)) {
+    if(x == state.name[i]) {
+      x <- state.abb[i]
+      break
+    }
+    i + 1
+  }
+  return(x)
+}
+
+contextdata$state <- lapply(contextdata$state, to_abb)
+
+contextdata <- contextdata %>% 
+  mutate(state = as.character(state))
+
+#Merging with my other dataset
+master_context <- left_join(combined_master, contextdata, by = "state") %>% 
+  
+  #Making sure all variables are summarized by state
+  
+  group_by(state) %>% 
+  summarise(
+    rep_adv = mean(rep_adv),
+    act_adv = mean(act_adv), 
+    error = mean(error),median_hh_inc = sum(median_hh_inc),
+    clf_unemploy_pct = mean(clf_unemploy_pct),
+    lesshs_pct = mean(lesshs_pct),
+    lesscollege_pct = mean(lesscollege_pct),
+    lesshs_whites_pct = mean(lesshs_whites_pct),
+    lesscollege_whites_pct = mean(lesscollege_whites_pct),
+    rural_pct = mean(rural_pct)
+  )
+
+write_rds(master_context,"ps_7/master_context.rds")
+```
 
