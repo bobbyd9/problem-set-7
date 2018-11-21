@@ -1,0 +1,63 @@
+---
+title: "Data_cleaning"
+author: "Bobby Drysdale"
+date: "11/20/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(janitor)
+library(fs)
+library(stringr)
+
+#Downloading Upshot data
+
+download.file(url = "https://goo.gl/ZRCBda", destfile = "master.zip", quiet = TRUE, mode = "wb")
+
+unzip("master.zip")
+
+# Removing zip file to unclutter folder
+
+file_delete("master.zip")
+
+#Read in and explore the election context data provided 
+
+context <- read_csv("https://raw.githubusercontent.com/MEDSL/2018-elections/master/election-context-2018.csv")
+```
+
+```{r}
+#Reading in all csv poll files into one dataframe
+
+allfiles <- dir_ls("2018-live-poll-results-master/data")
+rawmaster <- map_dfr(allfiles, read_csv, .id = "source")
+
+#Adding identifying variables to dataset to make it easier to identify district and state
+rawmaster <- rawmaster %>% 
+mutate(state = toupper(str_sub(source, 51, 52))) %>% mutate(district = toupper(str_sub(source, 51, 54))) %>% mutate(wave = toupper(str_sub(source, 51, 56)))
+
+#First I create will play with the predicted datsets
+
+#I make two seperate datasets to get the latest polls from the duplicate districts and combine them with the non duplicated ones
+
+nodups <- rawmaster %>% 
+  group_by(wave) %>% 
+  select(wave, district, state, response, final_weight) %>%
+  filter(response %in% c("Dem", "Rep", "Und")) %>%
+  group_by(wave, district, state, response) %>% count() %>%
+  spread(key = response, value = n) %>% group_by(district) %>% filter(n() == 1)
+  
+q4dup <- q2 %>% 
+  group_by(wave) %>% 
+  mutate(total = sum(final_weight)) %>% select(wave, district, response, final_weight, total) %>% filter(response %in% c("Dem", "Rep", "Und")) %>% 
+group_by(wave, district, response) %>% count() %>% 
+spread(key = response, value = n) %>%
+  mutate(adv = (Rep - Dem)/(Rep + Dem + Und)) %>% select(district, adv) %>% group_by(district) %>% filter(n() > 1) %>% mutate(Poll = toupper(str_sub(wave, 6))) %>% mutate(Poll = fct_recode(Poll, 
+                           "Poll 1" = "1",
+                           "Poll 2" = 
+"2",
+                           "Poll 2" = "3")) %>% filter(Poll == "Poll 2") %>% select(wave, district, adv)
+```
+
