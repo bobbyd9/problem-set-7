@@ -54,7 +54,8 @@ server <- function(input, output) {
       geom_point()+
       labs(title = "Comparasion of Predicted to Actual Republican Advantages",
            subtitle = "In Percent",
-           x = "Error")
+           x = "Error", 
+           y = input$x)
   })
 }
 

@@ -87,7 +87,7 @@ mt_2_results <- mt_2_results %>%
 
 combined_master <- left_join(premaster, mt_2_results)
 
-#creating the error beteen the actual and predicted advantages
+#Creating the error beteen the actual and predicted advantages
 
 combined_master <- combined_master %>% 
   mutate(error = abs(rep_adv - act_adv)) %>% select(state, district, rep_adv, act_adv, error)
