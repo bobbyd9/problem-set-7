@@ -151,6 +151,7 @@ master_context <- left_join(combined_master, contextdata, by = "state") %>%
     rural_pct = mean(rural_pct)
   )
 
+#Writing RDS file for use in shiny app
 write_rds(master_context,"ps_7/master_context.rds")
 ```
 
