@@ -44,20 +44,73 @@ mutate(state = toupper(str_sub(source, 51, 52))) %>% mutate(district = toupper(s
 
 nodups <- rawmaster %>% 
   group_by(wave) %>% 
-  select(wave, district, state, response, final_weight) %>%
+  select(wave, district, state, response, final_weight) %>% 
+  mutate(total = sum(final_weight)) %>% 
   filter(response %in% c("Dem", "Rep", "Und")) %>%
-  group_by(wave, district, state, response) %>% count() %>%
+  group_by(wave, district, state, response, total) %>% tally(wt = final_weight) %>%
   spread(key = response, value = n) %>% group_by(district) %>% filter(n() == 1)
   
-q4dup <- q2 %>% 
+dup <- rawmaster %>% 
   group_by(wave) %>% 
-  mutate(total = sum(final_weight)) %>% select(wave, district, response, final_weight, total) %>% filter(response %in% c("Dem", "Rep", "Und")) %>% 
-group_by(wave, district, response) %>% count() %>% 
-spread(key = response, value = n) %>%
-  mutate(adv = (Rep - Dem)/(Rep + Dem + Und)) %>% select(district, adv) %>% group_by(district) %>% filter(n() > 1) %>% mutate(Poll = toupper(str_sub(wave, 6))) %>% mutate(Poll = fct_recode(Poll, 
+  select(wave, district, state, response, final_weight) %>% 
+  mutate(total = sum(final_weight)) %>%  
+  filter(response %in% c("Dem", "Rep", "Und")) %>% 
+  group_by(wave, district, state, response, total) %>% tally(wt = final_weight) %>% 
+  spread(key = response, value = n) %>% group_by(district) %>% filter(n() > 1) %>% mutate(Poll = toupper(str_sub(wave, 6))) %>% mutate(Poll = fct_recode(Poll, 
                            "Poll 1" = "1",
-                           "Poll 2" = 
+                           "Poll 1" = 
 "2",
-                           "Poll 2" = "3")) %>% filter(Poll == "Poll 2") %>% select(wave, district, adv)
+                           "Poll 2" = "3")) %>% filter(Poll == "Poll 2") %>% select(-Poll)
+
+#Once these two datasets are made, I combine them into one 
+
+premaster <- rbind(dup, nodups) %>% 
+  ungroup(district) %>%
+  
+#I will be looking at only House Data, therefore I will next filter out the Senate and Government Observations
+  
+  filter(!str_detect(district, "SE")) %>% filter(!str_detect(district, "GO")) %>% 
+  
+#Now I calculate the Republican advantage
+  
+mutate(rep_adv = (Rep - Dem) / total)
+
+# I am now bringing in the actual results
+mt_2_results <- read_csv("mt_2_results.csv")
+
+#Creating the same republican advantage variable but naming it act_adv to show distinction from the predicted 
+
+mt_2_results <- mt_2_results %>% 
+  mutate(district = paste(state, district, sep = "")) %>% mutate(act_adv = (rep_votes - dem_votes)/(rep_votes + dem_votes + other_votes)) %>% select(district, act_adv)
+
+#Now I am joining the predicted and actual datasets together
+
+combined_master <- left_join(premaster, mt_2_results)
+
+#creating the error beteen the actual and predicted advantages
+
+combined_master <- combined_master %>% 
+  mutate(error = abs(rep_adv - act_adv)) %>% select(state, district, rep_adv, act_adv, error)
 ```
+
+```{r}
+#Now I bring in the context data that is linked in the Problem set
+
+contextdata <- read_csv("election-context-2018.csv")
+
+#Looking at the available variables, I decide to look at both educationn and household variables
+
+contextdata <- contextdata %>% 
+  select(median_hh_inc, clf_unemploy_pct, lesshs_pct, lesscollege_pct, lesshs_whites_pct, lesscollege_whites_pct, rural_pct) %>% 
+  
+  #since there is no districts explictly given, I do I similar switch as Ms. Gayton and do only states
+  group_by(state) %>% 
+  summarise(
+    median_hh_inc = sum(median_hh_inc),
+    clf_unemploy_pct = sum(clf_unemploy_pct)/100,
+    lesshs_pct = sum(lesshs_pct)/100,
+    lesscollege_pct = sum(lesscollege_pct)/100,
+    lesshs_whites_pct = sum(lesshs_whites_pct)/100,
+    lesscollege_whites_pct = sum(lesscollege_whites_pct)/100,
+    rural_pct = sum(rural_pct)/100)
 
